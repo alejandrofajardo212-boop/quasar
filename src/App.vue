@@ -9,7 +9,7 @@
       </q-toolbar>
     </q-header>
 
-    <!-- NOTIFICACIÓN DE BANNERS EN PANTALLA -->
+    <!-- NOTIFICACIÓN EN PANTALLA -->
     <div v-if="notificacionVisible" class="q-pa-md fixed-top-right z-top" style="max-width: 380px; margin-top: 60px;">
       <q-banner inline-actions class="bg-positive text-white rounded-borders shadow-5 text-body1">
         <template v-slot:avatar>
@@ -22,7 +22,7 @@
     <q-page-container class="bg-grey-2">
       <q-page class="q-pa-md">
 
-        <!-- TARJETAS DE MÉTRICAS MÁS AMPLIAS -->
+        <!-- TARJETAS DE MÉTRICAS -->
         <div class="row q-col-gutter-md q-mb-lg">
           <div class="col-12 col-sm-6 col-md-3">
             <q-card flat bordered class="bg-green-1 text-green-10 text-center q-pa-md shadow-1">
@@ -65,13 +65,13 @@
           </div>
         </div>
 
-        <!-- MENSAJE DE ESTADO VACÍO -->
+        <!-- MENSAJE SIN REGISTROS -->
         <div v-if="servicios.length === 0" class="text-center q-pa-xl text-grey-7">
           <q-icon name="devices_other" size="100px" color="grey-5" />
           <div class="text-h5 q-mt-md text-weight-medium">No hay servicios registrados en el taller.</div>
         </div>
 
-        <!-- LISTADO Y TARJETAS DE SERVICIOS -->
+        <!-- LISTADO DE TARJETAS -->
         <div v-else class="row q-col-gutter-md">
           <div v-for="s in servicios" :key="s.id" class="col-12 col-sm-6 col-md-4">
             <q-card flat bordered class="shadow-2" :class="{
@@ -103,14 +103,12 @@
                 <div class="q-mb-xs"><strong>Técnico:</strong> {{ s.tecnico }}</div>
                 <div class="q-mb-xs text-grey-8"><strong>Recepción:</strong> {{ s.fechaHora.replace('T', ' ') }}</div>
                 
-                <!-- MOSTRAR DOMICILIO SI EXISTE -->
                 <div v-if="s.direccion" class="text-body2 text-weight-bold text-primary q-mt-xs bg-blue-1 q-pa-xs rounded-borders">
                   <q-icon name="local_shipping" size="18px" /> Domicilio: {{ s.direccion }}
                 </div>
 
                 <div class="q-mt-sm text-subtitle1"><strong>Precio:</strong> <span class="text-weight-bold">${{ (s.precio || 0).toLocaleString() }}</span></div>
                 
-                <!-- DETALLE DE ABONO SI ESTÁ PENDIENTE -->
                 <div v-if="s.estadoPago !== 'Pagado'" class="text-body2 text-weight-bold text-negative bg-red-1 q-pa-xs rounded-borders q-mt-xs">
                   Abonado: ${{ getAbonado(s).toLocaleString() }} | Debe: ${{ getPendiente(s).toLocaleString() }}
                 </div>
@@ -123,15 +121,15 @@
                   <q-btn v-if="getPendiente(s) > 0" size="sm" color="primary" icon="attach_money" label="Cobrar" @click="abrirEstado(s)" unelevated class="text-weight-bold" />
                 </div>
 
-                <!-- ALERTA VISUAL SI SIGUE EN EL TALLER -->
-                <div v-if="!isFinal(s.estadoEquipo)" class="q-mt-sm text-caption text-weight-bold text-orange-9 bg-orange-1 q-pa-xs rounded-borders text-center">
-                  <q-icon name="schedule" /> Equipo aún en taller (Sin entregar)
+                <!-- ALERTA SI NO HA SIDO ENTREGADO AÚN -->
+                <div v-if="s.estadoEquipo !== 'Entregado'" class="q-mt-sm text-caption text-weight-bold text-orange-9 bg-orange-1 q-pa-xs rounded-borders text-center">
+                  <q-icon name="schedule" /> {{ s.estadoEquipo === 'Despachado' ? 'En camino (Sin recibir por cliente)' : 'Equipo en taller (Sin entregar)' }}
                 </div>
 
-                <!-- CALIFICACIÓN SI FUE ENTREGADO -->
-                <div v-if="isFinal(s.estadoEquipo)" class="q-mt-md bg-amber-2 q-pa-sm rounded-borders">
+                <!-- CALIFICACIÓN SOLO Y ÚNICAMENTE SI ESTÁ ENTREGADO -->
+                <div v-if="s.estadoEquipo === 'Entregado'" class="q-mt-md bg-amber-2 q-pa-sm rounded-borders">
                   <div class="row items-center">
-                    <strong class="q-mr-xs text-body2">Calificación:</strong>
+                    <strong class="q-mr-xs text-body2">Calificación del Cliente:</strong>
                     <q-rating v-model="s.calificacion" max="5" size="1.4em" color="orange" readonly />
                   </div>
                   <div v-if="s.observaciones" class="text-body2 text-italic text-grey-9 q-mt-xs">
@@ -142,7 +140,6 @@
 
               <q-separator />
 
-              <!-- ACCIONES DE EDICIÓN Y ELIMINACIÓN CON RESTRICCIÓN -->
               <q-card-actions align="between" class="q-px-md">
                 <span v-if="s.estadoEquipo === 'Entregado'" class="text-caption text-weight-bold text-negative">
                   <q-icon name="lock" /> Registro Finalizado
@@ -197,17 +194,21 @@
                 <q-btn v-if="inputAbono > 0" color="positive" icon="add" label="Sumar Abono" size="sm" class="full-width text-weight-bold" @click="sumarAbonoModal" unelevated />
               </div>
 
+              <!-- MENSAJE DE BLOQUEO DE COBRO -->
               <div v-if="isFinal(curServicio.estadoEquipo) && getPendiente(curServicio) > 0" class="q-pa-sm bg-red-1 text-negative border-red rounded-borders row items-center">
                 <q-icon name="error" size="24px" class="q-mr-xs" />
                 <div class="text-body2 text-weight-bold">
-                  ¡Atención! Debe cancelar el total (${{ getPendiente(curServicio).toLocaleString() }}) antes de entregar el equipo.
+                  ¡Atención! Debe cancelar el total (${{ getPendiente(curServicio).toLocaleString() }}) antes de despachar o entregar.
                 </div>
               </div>
 
-              <div v-if="isFinal(curServicio.estadoEquipo) && getPendiente(curServicio) === 0" class="bg-amber-1 q-pa-md rounded-borders text-center q-gutter-y-sm">
-                <div class="text-subtitle2 text-weight-bold">Calificación del cliente</div>
+              <!-- HABILITACIÓN DE CALIFICACIÓN: SOLO SI 'ENTREGADO' Y SALDO $0 -->
+              <div v-if="curServicio.estadoEquipo === 'Entregado' && getPendiente(curServicio) === 0" class="bg-amber-1 q-pa-md rounded-borders text-center q-gutter-y-sm">
+                <div class="text-subtitle2 text-weight-bold text-grey-9">
+                  <q-icon name="stars" color="orange" size="20px" /> Calificación del Cliente (Equipo recibido)
+                </div>
                 <q-rating v-model="curServicio.calificacion" max="5" size="2em" color="orange" />
-                <q-input v-model="curServicio.observaciones" label="Comentario / Reseña del cliente (Opcional)" type="textarea" outlined dense rows="2" bg-color="white" />
+                <q-input v-model="curServicio.observaciones" label="Comentario / Reseña del cliente" type="textarea" outlined dense rows="2" bg-color="white" />
               </div>
             </q-card-section>
 
@@ -271,7 +272,8 @@
                 </div>
               </div>
 
-              <div v-if="isFinal(form.estadoEquipo) && getPendiente(form) === 0" class="q-pa-sm bg-amber-1 rounded-borders text-center q-gutter-y-xs">
+              <!-- HABILITACIÓN DE CALIFICACIÓN SOLO SI ES 'ENTREGADO' -->
+              <div v-if="form.estadoEquipo === 'Entregado' && getPendiente(form) === 0" class="q-pa-sm bg-amber-1 rounded-borders text-center q-gutter-y-xs">
                 <div class="text-subtitle2">Calificación del cliente</div>
                 <q-rating v-model="form.calificacion" max="5" size="1.8em" color="orange" />
                 <q-input v-model="form.observaciones" label="Comentario / Reseña del cliente" type="textarea" outlined dense rows="2" bg-color="white" />
@@ -289,7 +291,7 @@
           </q-card>
         </q-dialog>
 
-        <!-- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN -->
+        <!-- MODAL CONFIRMACIÓN DE ELIMINACIÓN -->
         <q-dialog v-model="modalDel" persistent>
           <q-card>
             <q-card-section class="row items-center q-pa-md">
@@ -312,16 +314,13 @@
 import { ref } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 
-// OPCIONES DE SELECCIÓN
 const TECNICOS = ['Don Efraín', 'Técnico 1', 'Técnico 2']
 const MARCAS = ['Samsung', 'Apple', 'Xiaomi', 'Motorola', 'Huawei', 'Honor', 'Oppo', 'Realme', 'ZTE', 'Otra']
 const REPARACIONES = ['Cambio de pantalla', 'Cambio de batería', 'Cambio de pin de carga', 'Liberación', 'Mantenimiento de software', 'Cambio de flex', 'Otros']
 const ESTADOS = ['Recibido', 'En reparación', 'Listo para entregar', 'Despachado', 'Entregado']
 
-// PERSISTENCIA CON USELOCALSTORAGE DE VUEUSE
 const servicios = useLocalStorage('taller_efrain_servicios_v1', [])
 
-// ESTADOS DE REACTIVIDAD (SOLO REF, SIN COMPUTED O WATCH)
 const modalForm = ref(false)
 const modalDel = ref(false)
 const modalEstado = ref(false)
@@ -348,7 +347,6 @@ const getNowIso = () => {
   return now.toISOString().slice(0, 16)
 }
 
-// FUNCIONES AUXILIARES DE CÁLCULO
 const getAbonado = s => !s ? 0 : (s.montoPagado !== undefined ? s.montoPagado : (s.estadoPago === 'Pagado' ? (s.precio || 0) : 0))
 const getPendiente = s => !s ? 0 : Math.max(0, (s.precio || 0) - getAbonado(s))
 const calcEstadoPago = (precio, abonado) => (abonado >= precio && precio > 0) ? 'Pagado' : (abonado > 0 ? 'Abono' : 'Pendiente')
@@ -373,7 +371,6 @@ function calcTotalPendiente() {
 const countReparacion = () => servicios.value.filter(s => s.estadoEquipo === 'En reparación').length
 const countDespachados = () => servicios.value.filter(s => isFinal(s.estadoEquipo)).length
 
-// ACCIONES DE FORMULARIO
 function abrirCrear() {
   editId.value = null
   form.value = { 
@@ -420,7 +417,9 @@ function sumarAbonoModal() {
 function saveServicio() {
   if (isFinal(form.value.estadoEquipo) && getPendiente(form.value) > 0) return
   form.value.estadoPago = calcEstadoPago(form.value.precio || 0, form.value.montoPagado || 0)
-  if (!isFinal(form.value.estadoEquipo)) form.value.calificacion = 0
+  
+  // Si no está Entregado, limpia la calificación por seguridad
+  if (form.value.estadoEquipo !== 'Entregado') form.value.calificacion = 0
 
   if (editId.value !== null) {
     const idx = servicios.value.findIndex(s => s.id === editId.value)
@@ -437,7 +436,9 @@ function saveEstado() {
   const s = curServicio.value
   if (!s || (isFinal(s.estadoEquipo) && getPendiente(s) > 0)) return
   s.estadoPago = calcEstadoPago(s.precio || 0, s.montoPagado || 0)
-  if (!isFinal(s.estadoEquipo)) s.calificacion = 0
+  
+  // Si no está Entregado, limpia la calificación por seguridad
+  if (s.estadoEquipo !== 'Entregado') s.calificacion = 0
 
   const idx = servicios.value.findIndex(item => item.id === s.id)
   if (idx !== -1) {
@@ -453,19 +454,16 @@ function confirmarEliminar() {
   lanzarNotificacion('Servicio eliminado correctamente.')
 }
 
-// HELPERS DE ESTILO Y DISEÑO CONDICIONAL
 const getColorEquipo = e => ({ Recibido: 'orange-9', 'En reparación': 'blue-8', 'Listo para entregar': 'purple-8', Despachado: 'teal-8', Entregado: 'positive' })[e] || 'grey'
 const getColorPago = p => ({ Pagado: 'positive', Abono: 'warning', Pendiente: 'negative' })[p] || 'grey'
 const getIcono = e => ({ Recibido: 'inbox', 'En reparación': 'build', 'Listo para entregar': 'notifications', Despachado: 'local_shipping', Entregado: 'check_circle' })[e] || 'devices'
 </script>
 
 <style scoped>
-/* Bordes resaltados según el estado del pago */
 .border-red { border: 2px solid #f44336 !important; }
 .border-amber { border: 2px solid #ffc107 !important; }
 .border-green { border: 1px solid #4caf50 !important; }
 
-/* Tipografía de mayor tamaño para mejor legibilidad */
 .text-body1 { font-size: 1.05rem !important; line-height: 1.5; }
 .text-body2 { font-size: 0.95rem !important; }
 </style>
